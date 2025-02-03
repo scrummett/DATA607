@@ -1,0 +1,85 @@
+---
+title: "Data 607 Week 1 Assignment"
+author: "Samuel Crummett"
+date: "2025-02-03"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Introduction
+
+The article I chose from 538 involves an aging congress. They discuss a number of reasons the average age of congress is getting older, inluding how a large number of Baby Boomers make up its constituents as well as how their drive to stay a part of lawmaking is still strong. Here is a link to the article:
+https://fivethirtyeight.com/features/aging-congress-boomers/
+
+Getting Started
+```{r}
+library(dplyr);
+library(tidyverse)
+```
+Here we have installed and activated important packages for our following code.
+
+Finding our data
+```{r}
+congress <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/refs/heads/master/congress-demographics/data_aging_congress.csv")
+```
+Here we have taken our data from Github, where 538 has stored the raw data in a .csv file, and loaded it into the value "congress" as a table.
+
+Table
+```{r}
+congress
+```
+From here, we want to manipulate the data into something more concise by cutting out some variables as well as clarifying others.
+
+Trimming Rows
+```{r}
+congress <- congress |>
+  select(!bioguide_id, 
+         -cmltv_cong,
+         -cmltv_chamber)
+congress
+```
+The first thing I identify as extraneous in regards to age is the "bioguide_id" column. Additionally, while it is interesting, we can get rid of "cmltv_cong" and "cmltv_chamber" as that is more of a reflection of their careers as opposed to their ages. The rest of the data can accurately trace their ages as well as who they are so we can keep it. Here, we cut the extraneous out and create a new "congress" table without them.
+
+Identifying and Converting Data
+```{r}
+congress|>
+  distinct(party_code)
+```
+From the previous table, we could see that party_code listed only numerical data. The information provided on Github tells us that these are to identify the senator's political parties. Instead of needing to identify each code every time, we can determine how many distinct codes there are(as we did above), match them with their parties once and change them all within the data (as is we will do below).
+
+Information about party codes here: https://voteview.com/articles/data_help_parties
+
+```{r}
+congress <- congress|>
+  mutate(party_code = recode(party_code, "200" = "Republican",
+                             "100" = "Democrat",
+                             "329" = "Independent Democrat",
+                             "370" = "Progressive Party",
+                             "537" = "Farmer-Labor Party",
+                             "328" = "Independent",
+                             "380" = "Socialist Party",
+                             "112" = "Conservative Party",
+                             "356" = "Union Labor Party",
+                             "522" = "American Labor Party",
+                             "331" = "Independent Republican",
+                             "523" = "American Labor Party (La Guardia)",
+                             "347" = "Prohibitionist Party",
+                             "402" = "Liberal Party"))
+congress
+```
+The new table presents their parties without the need to look elsewhere. Now that the data is no longer in code, we can also change the title of the column.
+```{r}
+congress <- congress|>
+  rename(party = party_code)
+congress
+```
+Now we have a much more concise set of data that is easy to navigate.
+
+Conclusions
+
+It is clear that the Senate is currently much older than it has ever been and I believe we can expand our view of the age of our public servants by looking at presidential ages. Joe Biden and Donald Trump are our two oldest presidents, and our most recent - perhaps their staff reflect a similar phenomenon of being, on average, older. I also think that it could be interesting to look at local politicians to see if they skew older or younger on average.
