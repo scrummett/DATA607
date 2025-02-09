@@ -1,0 +1,74 @@
+---
+title: "Data 607 Assignment 2"
+author: "Samuel C"
+date: "2025-02-09"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Introduction
+
+I surveyed six of my friends about their thoughts on the current Best Picture nominees for the Oscars this year. They ranked these films on a scale from 1-5, however some folks had not seen every film, in which case their answer was entered as a 0. Despite having incomplete data, I went ahead and assembled a table in MySQL. The SQL code for the table is as follows:
+
+CREATE TABLE Oscar_Ratings (
+	movie VARCHAR(50),
+	Abigail VARCHAR(50),
+	David VARCHAR(50), 
+	Naomi VARCHAR(50),
+	Kabir VARCHAR(50),
+    Evana VARCHAR(50),
+    Gordon VARCHAR(50)
+
+);
+
+INSERT INTO Oscar_Ratings
+VALUES
+("The Substance",5,3,"NA",5,2,2),
+("Nickel Boys",3,5,3,4,2,3),
+("Anora",5,"NA",3,4,5,4),
+("The Brutalist",2,4,5,5,2,3),
+("A Complete Unknown",1,1,5,3,5,"NA"),
+("Conclave",4,"NA","NA",4,3,2)
+
+Once the table was finished, I went ahead and connected to the provided MySQL database. From there, anyone with the knowledge of the database and password could access this data.
+
+Accessing Data in R
+```{r}
+library(RMySQL)
+
+mydb <-dbConnect(MySQL(), user = 'samuel.crummett99', password = '0e4586f2d39e843c', dbname = 'samuel.crummett99', host = 'cuny607sql.mysql.database.azure.com')
+
+dbListTables(mydb)
+```
+To begin, we will need to use the RMySQL package. Once accessed, we can create the connection to the server and database. These are then stored in "mydb" to quickly access later. We can also ensure we hava loaded everything correctly by quickly checking the tables that are present in the database.
+
+Viewing the data
+```{r}
+dbListFields(mydb, 'Oscar_Ratings')
+```
+Here we can take a look at all of the column names in our data.
+
+```{r}
+ratings <- dbSendQuery(mydb, 'SELECT * FROM Oscar_Ratings')
+OscarRatings <- fetch(ratings, n = 6)
+OscarRatings
+```
+Here we have called the entire table from the database and saved it to call upon it when necessary. Now we have successfully loaded and saved our dataframe from SQL into R.
+
+Replacing Values
+```{r}
+library(dplyr)
+NewOscarRatings <- OscarRatings |>
+  mutate(across(c(David, Naomi, Gordon), ~ na_if(., 0)))
+NewOscarRatings
+```
+Here we have taken all of the data from the table entered as "NA" and replaced them with missing values. We have done this in order to make sure that their "0" values, or their lack of responses, do not affect any sort of calculations we might do later. We have also saved these corrections under a new table.
+
+Conclusions
+
+Storing data in a server can be convenient when not able to store it locally, or when you do not have access to the original location it is stored. Additionally, using MySQL is a great way to create and share your data in the form of a table. However, if not entered properly, you will still need to do some  cleaning before you can properly work with your data.
