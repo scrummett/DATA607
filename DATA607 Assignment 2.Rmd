@@ -17,12 +17,12 @@ I surveyed six of my friends about their thoughts on the current Best Picture no
 
 CREATE TABLE Oscar_Ratings (
 	movie VARCHAR(50),
-	Abigail VARCHAR(50),
-	David VARCHAR(50), 
-	Naomi VARCHAR(50),
-	Kabir VARCHAR(50),
-    Evana VARCHAR(50),
-    Gordon VARCHAR(50)
+	Abigail INT(50),
+	David INT(50), 
+	Naomi INT(50),
+	Kabir INT(50),
+    Evana INT(50),
+    Gordon INT(50)
 
 );
 
