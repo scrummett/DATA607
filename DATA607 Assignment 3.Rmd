@@ -1,0 +1,122 @@
+---
+title: "DATA 607 Assignment 3"
+author: "Samuel C"
+date: "2025-02-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Overview
+Database management will become increasingly important in our course, as it is in the field, and as such making sure our data is easy to process is key. Cleaning up data also means that we must reorganize our sets of data into more manageable tables. From here we can begin to process it and understand trends.
+Additionally, combing through data as it exists as a text is important, especially when you only need to find fragments of words to get the correct data.  Either creating your own regular expressions or simply understanding them will be vital.
+
+1.Loading Packages & Table Creation
+```{r}
+library(tidyverse)
+music_survey <- tribble(
+  ~Friend, ~Type, ~Format, ~Genre,
+  "Abigail",   "Physical, Digital", "Spotify, CD", "Pop, Hip-Hop",
+  "David",   "Physical", "CD, Vinyl, Tape", "Ambient, Pop, Rock, Jazz",
+  "Naomi",   "Digital", "Spotify, YouTube", "Pop, Jazz, Latin"
+)
+music_survey
+```
+After a brief survey from friends about how they listen to music and what sorts of music they like, I entered that data into a table. However, the data needs to be normalized.
+
+Normalized Data
+```{r}
+music_preferences <- tribble(
+  ~Friend, ~Type, 
+  "Abigail",   "Physical",
+  "Abigail", "Digital",
+  "David",   "Physical",
+  "David", "Physical",
+  "Naomi",   "Digital"
+)
+music_preferences
+```
+Here we have our data for their listening preference normalized, however we can extrapolate what we've done to their prefered format to listen to music and genre of music.
+
+```{r}
+music_format <- tribble(
+  ~Friend, ~Format,
+  "Abigail", "Spotify",
+  "Abigail", "CD",
+  "David", "CD",
+  "David", "Vinyl",
+  "David", "Tape",
+  "Naomi", "Spotify",
+  "Naomi", "YouTube"
+)
+music_format
+```
+Here we have a normalized table of what format everyone enjoys listening music on.
+
+```{r}
+format_type <- tribble(
+  ~Type, ~Format,
+  "Digital", "Spotify",
+  "Digital", "YouTube",
+  "Physical", "CD",
+  "Physical", "Vinyl",
+  "Physical", "Tape"
+)
+format_type
+```
+We now have a normalized table of the format each preference is in.
+
+```{r}
+music_genre <- tribble(
+  ~Friend, ~Genre,
+  "Abigail",   "Pop",
+  "Abigail", "Hip-Hop",
+  "David",   "Ambient",
+  "David", "Pop",
+  "David", "Rock",
+  "David", "Jazz",
+  "Naomi",   "Pop",
+  "Naomi", "Jazz",
+  "Naomi", "Latin"
+)
+music_genre
+```
+Lastly we have a normalized table of the genre of music everyone likes to listen to.
+
+2.Loading the data
+```{r}
+major_list <- read.csv('https://raw.githubusercontent.com/fivethirtyeight/data/refs/heads/master/college-majors/majors-list.csv')
+
+pull(major_list, Major)
+```
+Here we have loaded our data provided by 538 from Github and saved it as a table within R. We also ran a test to make sure we can pull everything as vectors from this table.
+
+Finding Majors
+```{r}
+major_list |> 
+  pull(Major) |> 
+  str_view("STATISTICS|DATA")
+```
+Here we have pulled that previous list of majors, but refined our search to only include majors with the words "STATISTICS" or "DATA" in them.
+
+3.
+While (.)\1\1 will not match anything, as I believe it is not written correctly, changing it to more proper syntax will. "(.)\\1\\1" matches when a word has one letter that is then followed by that same letter twice. In effect, when an object has three of the same letters back to back, like "eee".
+
+"(.)(.)\\2\\1" matches when a word has two letters back to back with those same letters reversed and following right after the first two. 
+
+Similarly to our first example, (..)\1 will match anything, but changing the syntax to "(..)\\1" will match when we have two letters together that are then repeated. An example includes "na" in "banana". This code would return "banana" as it identifies "na" as two letters coming together, and then immediately followed by another "na".
+
+"(.).\\1.\\1" would match an object that contains a letter, followed by any other letter, with the first letter repeated, followed by any other letter again, and finally is followed by that first letter repeated again. It could look like "abaca" or "xyxzx".
+
+"(.)(.)(.).*\\3\\2\\1" would match an object that has one letter, followed by a second letter, followed by a third letter, separated by at least one letter, with the third letter repeating, followed by the second letter, followed by the first letter. An example would be "abcdcba" or even "xyzaaaaaaaaazyx".
+
+4.
+A regular expression to match a word that starts and ends with the same character we could write "^(.).*\\1$"
+
+To match a word that contains a repeated pair of letters we could write "(..).*\\1".
+
+To match a word that contains one letter repeated in at least three places we could write "(.).*\\1.*\\1".
+
+Conclusions
+While I was able to normalize this data by hand, I am looking forward to understanding ways in which I can create a code to make these normalized tables for me. In the future, I imagine that creating them by hand will be an irresponsible use of time and that there is surely a more efficient way to do so. 
