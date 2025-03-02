@@ -1,0 +1,200 @@
+---
+title: "DATA607_Proj_1"
+author: "Samuel C"
+date: "2025-03-02"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Overview**
+
+For this project, I was given a text file that included the results from a chess tournament, however the data is saved as a .txt file and broken up into a table that is easy to keep records by hand, not necessarily for data processing. Here I will sort through the data and filter out superfluous information and be left with a table that includes our players names, their state/origin, the total number of points they earned during the tournament, their pre-rating, and finally the average pre-rating of their opponents. Once the table is completed, I will save it as a .csv file.
+
+In order to start off, I must import the data, which I have stored on github, as well as choose the packages I will be working with.
+
+```{r}
+library(tidyverse)
+data_url <- 
+  "https://raw.githubusercontent.com/scrummett/DATA607/refs/heads/main/tournamentinfo.txt"
+raw_data <- read_fwf(data_url,
+         fwf_widths(c(8, 33, 6, 6, 6, 6, 6, 6, 6, 6)),
+         skip = 4)
+```
+
+Here I have read the .txt file in "fixed width format", as if I were to read it in with "readLines" I would have a much harder time creating columns, which I will soon turn into our variables. Fortunately, with "read_fwf", I can create different columns at exact spots in the file. I have also skipped the first four rows, as I won't need their column names in our table.
+
+**Data Transformation**
+
+```{r}
+head(raw_data)
+```
+
+Now that I have our data in columns, I can begin to clean them up by getting rid of the extraneous things separating our values such as rows of "---" and "\|" separating columns.
+
+```{r}
+raw_data <- raw_data |> 
+  filter(X1 != "--------") |> 
+  mutate_all(~ str_replace_all(as.character(.), c("\\|" = "")))
+```
+
+Now I have only rows of information I need, and less punctuation that is not helpful to us. However, information for an individual player is stored across two separate rows each, therefore I must create a table with one row per player.
+
+```{r}
+raw_data_id <- raw_data |> 
+  filter(!is.na(as.numeric(X1)))
+raw_data_state <- raw_data |> 
+  filter(is.na(as.numeric(X1)))
+raw_data_id <- raw_data_id |> 
+  mutate(join_id = 1:n())
+raw_data_state <- raw_data_state |> 
+  mutate(join_id = 1:n())
+raw_data <- full_join(raw_data_id, raw_data_state, by = "join_id")
+head(raw_data)
+```
+
+Here I have separated our data out into two tables by looking at their first column. I saw that they either contained letters or numbers. These rows were separated by determining if the values in the first column could be considered "numeric" or not. I created the table "raw_data_num" for those that were numeric and "raw_data_state" for those that weren't. After that, I assigned each row in both tables a "join_id" number that would correspond to the other table. I then joined the two rows to create one table with every player's information in one row.
+
+However, this data is still obfuscated by column names that don't make sense. Next, I can clean that up, as well as the data in those columns.
+
+```{r}
+raw_data <- raw_data |> 
+  rename(
+    id = X1.x,
+    name = X2.x,
+    total_points = X3.x,
+    opponent_1 = X4.x,
+    opponent_2 = X5.x,
+    opponent_3 = X6.x,
+    opponent_4 = X7.x,
+    opponent_5 = X8.x,
+    opponent_6 = X9.x,
+    opponent_7 = X10.x,
+    state = X1.y,
+    pre_rating = X2.y)
+```
+
+Next I can select only the columns that will be important to us going further.
+
+```{r}
+raw_data <- raw_data |> 
+  select(id,
+         name,
+         total_points,
+         opponent_1,
+         opponent_2,
+         opponent_3,
+         opponent_4,
+         opponent_5,
+         opponent_6,
+         opponent_7,
+         state,
+         pre_rating)
+```
+
+These are the columns that will either be in our final table, or will help us calculate the averages for our final table.
+
+I have win/loss/draw information in our table still which I can get rid of too.
+
+```{r}
+raw_data <- raw_data |> 
+  mutate(across(starts_with("opponent_"), ~ gsub("[A-Za-z ]", "", .)))
+head(raw_data)
+```
+
+Here I looked across every column that began with "opponent\_" for observations that contained any letters followed by a space, written as "[A-Za-z ]". If letters were found, I replaced them with a value of nothing, written as "".
+
+Next, I can get rid of the extra information in the "pre_rating" column.
+
+```{r}
+raw_data <- raw_data |> 
+  mutate(pre_rating = parse_number(str_extract(pre_rating, " \\d+")))
+```
+
+With this code, I take every observation within the prevariable column and search for any instance of a space, followed by any number of digits, however they can only be digits. This prevents us from taking any other numbers within the observations. Additionally, it takes what is left, a space and a number, and only keeps the numbers, changing the column type to "dbl" as well.
+
+One last transformation that needs to be done is changing some of our columns to be numerical, not character columns.
+
+```{r}
+chess_data <- raw_data |> 
+  mutate_at(vars(id,
+                 total_points,
+                 opponent_1,
+                 opponent_2,
+                 opponent_3,
+                 opponent_4,
+                 opponent_5,
+                 opponent_6,
+                 opponent_7,
+                 pre_rating), as.numeric)
+head(chess_data)
+```
+
+Now that these are numeric, I can begin to find the average rating of opponents for each player.
+
+This data is very wide however, so it must be tidied to more easily perform the next steps.
+
+```{r}
+long_chess_data <- chess_data |> 
+  pivot_longer(
+    cols = starts_with("opponent_"),
+    names_to = "round",
+    values_to = "opponent_id")
+head(long_chess_data)
+```
+
+We have created a new single column for opponent_id, and now have a column of which round that opponent was played. We can clean that column up as well.
+
+```{r}
+long_chess_data <- long_chess_data |> 
+  mutate(round = str_extract(round, "\\d+"))
+long_chess_data <- long_chess_data |> 
+  mutate(round = as.numeric(round))
+head(long_chess_data)            
+```
+
+The column for rounds is now a single digit and is numerical.
+
+Now with the data long I can assign the values of the opponents rankings more easily.
+
+```{r}
+long_chess_data <- long_chess_data |> 
+  mutate(
+    opponent_rating = pre_rating[match(opponent_id, id)])
+```
+
+Here I have created a column with the ranking of the opponent played. I have done so with match(), first matching where the opponent_id and id values match. Then the pre_rating value is retrieved from the same row as id and inserted into the new column. From here I can find the average opponent pre-rating.
+
+```{r}
+opp_avg_data <- long_chess_data |> 
+  group_by(name) |> 
+  summarise(avg_opp_rating = mean(opponent_rating, na.rm = TRUE))
+```
+
+Here I have created a new table with two columns, the name of the player and their corresponding average opponents rating.
+
+```{r}
+long_chess_data <- long_chess_data |> 
+  select(name, total_points, state, pre_rating) |> 
+  distinct(name, .keep_all = TRUE) 
+final_chess_data <- full_join(long_chess_data, opp_avg_data, by = "name")
+final_chess_data <- final_chess_data |> 
+  relocate(state, .before = total_points)
+head(final_chess_data)
+```
+
+Next is to make a table that can be joined to the opp_avg_data. First we filter out all variables that we no longer need, keeping name, state, total points, and pre-rating, then finding the distinct rows by name. After this, I joined by name and rearranged two columns to create our final table.
+
+```{r}
+write.csv(final_chess_data, "C:/Users/crumm/Documents/finalchessdata.csv", row.names = FALSE)
+```
+
+Lastly, I wrote a .csv file which I will store on github.
+
+**Conclusion**
+
+While this project was asking for a fairly simple task, taking data in a messy, unfriendly form and cleaning it up into something more manageable, I used many different methods to get to my final answer. First, I had to import the data from a file type that I have not had much experience with, followed by a long clean up involving REGEX and joins. Additionally, I had to create a version of the data that was much tidier, using pivot_longer to accomplish this. From there I could more easily find the averages of opponent pre-ratings. This, to me felt like a culmination of the first few weeks of basic data manipulation and handling. It seems like there are many ways to get to the final table too - I found myself doing this two separate (but similar) ways. First, I made the table with wide, untidy data. Once I had that done I could see more easily how tidying my data would make manipulating the data much quicker.
