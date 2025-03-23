@@ -49,8 +49,8 @@ psw <- Sys.getenv("PROJECT03_PW")
 con <- dbConnect(MySQL(), 
                  dbname = "data607_database", 
                  host = "project03.mysql.database.azure.com", 
-                 user = "project03", 
-                 password = "qL8QjT99dVBi3Q4")
+                 user = user, 
+                 password = psw)
 ```
 
 Acquire the dataset:
