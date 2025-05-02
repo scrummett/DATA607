@@ -1,0 +1,269 @@
+---
+title: "Data 607 Lab 10"
+author: "Samuel C"
+date: "2025-05-02"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+Sentiment analysis can help us determine the attitudes reflected within ddata. Here we will look at attitudes reflected in Jane Austen novels as well as in Beatles lyrics, however with these skills we can see how we might apply them to response/feedback data. While not perfect, sentiment analysis gives us a glimpse into how data can move beyond hard numbers and values.
+
+# Load Packages
+
+```{r}
+library(tidytext)
+library(textdata)
+library(sentimentr)
+library(wordcloud)
+library(reshape2)
+library(arrow)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(janeaustenr)
+library(stringr)
+```
+
+# Jane Austen Analysis
+
+The following section demonstrates some of the power behind sentiment analysis on large volumes of text, such as novels written by Jane Austen. This code, while expounded upon later, was written by Julia Silge and David Robinson in *Text Mining with R.* Here I will run their primary example to develop an understanding of sentiment analysis and how to engage with it.
+
+```{r}
+# Load Jane Austen books and clean
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(text, 
+                                regex("^chapter [\\divxlc]", 
+                                      ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+
+# Get bing sentiment values and create net sentiment
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+# Plot net sentiment across books
+ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+```
+
+Here we can see that across books, Jane Austen writes with positive language, however typically near the third act there is negative language, which to me indicates conflict within the story.
+
+Here we can see how each sentiment lexicon differs from the other using Pride and Prejudice.
+
+```{r}
+# Load Pride and Prejudice
+pride_prejudice <- tidy_books %>% 
+  filter(book == "Pride & Prejudice")
+
+# Calculate sentiment scores using AFINN
+afinn <- pride_prejudice %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = linenumber %/% 80) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+# Calculte sentiment scores using Bing and NRC
+bing_and_nrc <- bind_rows(
+  pride_prejudice %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."),
+  pride_prejudice %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+# Plot sentiment scores for comparison
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+```
+
+Here we can see how Bing counts the most negative sentiments more frequently than the other two, while NRC shows nearly only positive sentiments.
+
+We can also use these to get counts of positive and negative words.
+
+```{r}
+# Get word counts using Bing
+bing_word_counts <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+# Plot word counts to compare positive and negative language
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+These graphs demonstrate how much more often positive language is counted than negative language.
+
+Another way to look at the frequency of word usage is a word cloud.
+
+```{r}
+# Create a word cloud across all books
+tidy_books %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100)) # Only use 100 words in cloud
+```
+
+Here we can see that the words "miss" and "time" are used most frequently across all novels. It makes sense that "miss" would be used as it is a way to address young women, the usual protagonists in Jane Austen novels. Within word clouds we can create a comparison of positive and negative language as well
+
+```{r}
+# Create word cloud with positive and negative sentiment
+tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+Here the word cloud categorizes "miss" as negative, however as previously stated, it is more likely used as a way to address someone, without negative sentiment.
+
+We can also look at how many negative words as a proportion of the novel there are.
+
+```{r}
+# Get negative sentiments from Bing
+bingnegative <- get_sentiments("bing") %>% 
+  filter(sentiment == "negative")
+
+# Get total word counts
+wordcounts <- tidy_books %>%
+  group_by(book, chapter) %>%
+  summarize(words = n())
+
+# Create table showing highest negative word usage
+tidy_books %>%
+  semi_join(bingnegative) %>%
+  group_by(book, chapter) %>%
+  summarize(negativewords = n()) %>%
+  left_join(wordcounts, by = c("book", "chapter")) %>%
+  mutate(ratio = negativewords/words) %>%
+  filter(chapter != 0) %>%
+  slice_max(ratio, n = 1) %>% 
+  ungroup()
+```
+
+# Beatles Lyrics
+
+The Beatles have a robust songbook, with lots of silly, irreverant songs throughout. I imagine that a sentiment analysis of their music will yield overwhelmingly positive results.
+
+First, the data must be loaded in and slightly cleaned up.
+
+```{r}
+beatles_clean <- read.csv("https://raw.githubusercontent.com/scrummett/DATA607/refs/heads/main/beatles_lyrics.csv")
+beatles_clean <- beatles_clean |> 
+  mutate(album = str_remove(album, " by The Beatles$"))
+beatles_lyrics <- beatles_clean |> 
+  select(album,
+         title,
+         lyrics) |> 
+  unnest_tokens(word, lyrics)
+```
+
+Next, we can use the Bing lexicon sentiment analysis to look at songs across albums to get an idea of how positive or negative the Beatles' lyrics are.
+
+```{r}
+beatles_bing <- beatles_lyrics |> 
+  inner_join(get_sentiments("bing")) |> 
+  count(album, title, sentiment) |> 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |> 
+  mutate(sentiment = positive - negative)
+beatles_bing |> 
+  ggplot(aes(title, sentiment, fill = album)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~album, ncol = 2, scales = "free_x") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+Here we can see that overwhelmingly the beatles have positive lyrics, with outstanding negative lyrics on albums such as Yellow Submarine, Help! and Magical Myster Tour.
+
+We can take a look at the most often used positive and negative words in Beatles lyrics as well.
+```{r}
+beatles_word_count <- beatles_lyrics |> 
+  inner_join(get_sentiments("bing")) |> 
+  count(word, sentiment, sort = TRUE) |> 
+  ungroup()
+beatles_word_count |> 
+  group_by(sentiment) |> 
+  slice_max(n, n = 10) |> 
+  ungroup() |> 
+  mutate(word = reorder(word, n)) |> 
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+"Love" is used the most in this analysis using Bing, however if we used a different lexicon we might find something else!
+
+For instance, using a word cloud will allow us to look at all words, not just sentimental words as designated by Bing (or other lexicons).
+```{r}
+beatles_lyrics |> 
+  anti_join(stop_words) |> 
+  count(word) |> 
+  with(wordcloud(word, n, max.words = 200))
+```
+When disregarding sentiment, we find that "yeah" is the most used word throughout the Beatles catalogue. What would it look like if we added sentiment analysis to this word cloud?
+```{r}
+beatles_lyrics |> 
+  inner_join(get_sentiments("bing")) |> 
+  count(word, sentiment, sort = TRUE) |> 
+  acast(word ~ sentiment, value.var = "n", fill = 0) |> 
+  comparison.cloud(colors = c("red", "blue"),
+                   max.words = 100)
+```
+This word cloud reflects what our graph of word counts reflected earlier, however without actual values.
+
+# Using Sentimentr
+
+Many different lexicons exist for sentiment analysis, however they can be fairly specialized depending on your field. Sentimentr is a package for broad use that uses descriptors and negatives such as "very" or "not" to emphasize values. This can also be used to nalayze lyrics.
+```{r}
+beatles_sentiment <- beatles_clean |> 
+  rowwise() |> 
+  mutate(sentiment_score = sentiment(lyrics)$sentiment |> 
+         mean(na.rm = TRUE)) |> 
+  ungroup()
+
+beatles_sentiment |> 
+  ggplot(aes(title, sentiment_score, fill = album)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~album, ncol = 2, scales = "free_x") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+```
+Here we can see that again, for the most part, Beatles lyrics are analyzed as being fairly positive with some standout tracks being overwhelmingly negative!
+
+## Conclusion
+
+Sentiment analysis is a very useful tool, whether it be books and lyrics, or response data. Different lexicons may be more useful than others, depending on what field you are in or perhaps how detailed and granular you want to be with the exact words compared to wording (using negatives or amplifiers). I imagine this is a very useful tool in receiving reviews for products on an incredibly large scale.
