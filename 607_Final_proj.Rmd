@@ -1,0 +1,579 @@
+---
+title: "607 Final Project - Trends of Oscar Winning Film Sentiments"
+author: "Samuel Crummett"
+date: "2025-05-14"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Trends within arts come and go over time, and can occasionally reflect how the national mood changes as well. By examining the scripts of Oscars Best Picture winners and attaching sentiment values to these scripts, I hope to answer the question - Can we see a trend in the sentiment of Oscar winning film screenplays over time? Our data will consist of 30 films, the years they were released, and their scripts.
+
+## Packages
+
+```{r}
+library(tidytext)
+library(textdata)
+library(sentimentr)
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+```
+
+## Data Sources
+
+-   [Read The Screenplay Series](https://deadline.com/story-arc/read-the-screenplay-series/) from Deadline (scraped
+
+-   [The Internet Movie Script Database (IMSDb)](https://imsdb.com/) (scraped)
+
+-   [Oscar Best Picture Movies](https://www.kaggle.com/datasets/martinmraz07/oscar-movies?resource=download) (dataset)
+
+## Problem
+
+I initially chose to manually scrape the data from these websites, as I assumed it would be fairly easy as the scripts are clearly marked. However, I learned after "gathering" all of the scripts that when putting them into an Excel cell, only \~32,000 characters were transferred over. I then had to go back to the scripts, find where they were cut off, and enter them again for every \~32,000 characters. If I were to repeat this process, I would likely use a web scraping tool to simplify this process.
+
+## Loading Data and Light Cleaning
+
+```{r}
+# Load the script and Oscars metadata
+script_data <- read.csv("https://github.com/scrummett/DATA607/raw/refs/heads/main/Script%20test.csv")
+oscar_data <- read.csv("https://raw.githubusercontent.com/scrummett/DATA607/refs/heads/main/oscars_df.csv")
+
+# Clean and format the Oscars data
+oscar_data <- oscar_data |> 
+  mutate(
+    Oscar.Year = as.numeric(Oscar.Year),           
+    Film = reorder(Film, Oscar.Year)               
+  )
+
+# Filter to only the categories we need
+oscar_data <- oscar_data |> 
+    select(Film,
+         Oscar.Year,
+         Movie.Genre
+         )
+
+# Merge the script data with Oscar data by film title
+script_data <- merge(script_data, oscar_data, by = "Film")
+
+# Tokenize the script into individual words
+script_data <- script_data |> 
+  unnest_tokens(word, Script)  
+```
+
+Here I have merged my two separate datasets into one by the column "Film", and made sure that they are ordered by year. I then separated every word from "Script" into their own row in the column "word". I chose not to filter out any observations yet as attaching sentiment will filter out most of the superfluous words, and I can then examine each movie for any words that are acting as potential outliers that are not relevant through a word count.
+
+## Sentiment Values
+
+Here I have attached values to each word using three different lexicons which we will compare across. Bing attaches values "positive" or "negative" to words within its lexicon, and NRC does the same with the addition of more descriptive language such as "joy" or "anger". Afinn scores words on a scale from negative to positive with values of -5 to 5.
+
+```{r}
+# 1. BING Lexicon 
+bing_sentiment <- script_data |> 
+  inner_join(get_sentiments("bing")) |>            
+  count(Film, sentiment) |>                         
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |> 
+  mutate(sentiment = positive - negative)           
+
+# 2. AFINN Lexicon 
+afinn_sentiment <- script_data |> 
+  inner_join(get_sentiments("afinn"), by = "word") |>  
+  group_by(Film) |> 
+  summarise(sentiment = sum(value, na.rm = TRUE))      # Sum all sentiment values per film to create a "score" comparable to Bing and NRC
+
+# 3. NRC Lexicon 
+nrc_sentiment <- script_data |> 
+  inner_join(get_sentiments("nrc")) |>             
+  count(Film, sentiment) |> 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |> 
+  mutate(sentiment = positive - negative)           
+
+# Combine sentiment scores with Oscar data to prepare for visualization
+bing_oscars <- merge(oscar_data, bing_sentiment, by = "Film")
+afinn_oscars <- merge(oscar_data, afinn_sentiment, by = "Film")
+nrc_oscars <- merge(oscar_data, nrc_sentiment, by = "Film")
+```
+
+I have also joined the sentiment data back to the data on all films for each lexicon
+
+## Sentiment Plots
+
+```{r}
+bing_oscars |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  # Adjust bar width
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  # Add sentiment value labels
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  # Rotate and resize labels
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Bing Sentiment Scores by Film"
+  )
+```
+
+```{r}
+afinn_oscars |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  # Adjust bar width
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  # Add sentiment value labels
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  # Rotate and resize labels
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Afinn Sentiment Scores by Film"
+  )
+```
+
+```{r}
+nrc_oscars |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  # Adjust bar width
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  # Add sentiment value labels
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  # Rotate and resize labels
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "NRC Sentiment Scores by Film"
+  )
+```
+
+After plotting sentiment scores by film in chronological order of release date, I find it difficult to see a clear linear relationship between the two. There seems to be a mild trend of negative scores in the early 90s, followed by a rise in the late 90s, to low scores again in the 2000s, ending with fairly positive scores in the 2010s using Bing and Afinn lexicons, however NRC presents mostly positive scores across the 30 films. We can take a look at our word counts to determine if we have proper nouns being mistaken for valued words that we might want to filter out.
+
+## Word Counts
+
+```{r}
+# Join script with Bing sentiment lexicon
+bing_count <- script_data |> 
+  inner_join(get_sentiments("bing")) |> 
+  count(Film, word, sentiment, sort = TRUE) |>  
+  ungroup()
+
+# Plot top 5 most frequent sentiment words per film
+bing_count |> 
+  group_by(Film) |> 
+  slice_max(order_by = n, n = 5, with_ties = FALSE) |>  
+  ungroup() |> 
+  mutate(word = reorder_within(word, n, Film)) |>  
+  ggplot(aes(n, word, fill = sentiment)) +  
+  geom_col(show.legend = FALSE) +  
+  geom_text(aes(label = n), hjust = -0.1, size = 3) +  
+  facet_wrap(~Film, scales = "free_y") +  
+  scale_y_reordered() +  
+  labs(
+    title = "Top 5 Sentiment Words per Film (Bing Lexicon)",  
+    x = "Contribution to Sentiment",  
+    y = NULL  
+  ) 
+
+# Join script with AFINN sentiment lexicon
+afinn_count <- script_data |> 
+  inner_join(get_sentiments("afinn")) |> 
+  count(Film, word, value, sort = TRUE) |>  
+  ungroup()
+
+# Plot top 5 most frequent sentiment-scored words per film
+afinn_count |> 
+  group_by(Film) |> 
+  slice_max(order_by = n, n = 5, with_ties = FALSE) |> 
+  ungroup() |> 
+  mutate(word = reorder_within(word, n, Film)) |> 
+  ggplot(aes(n, word, fill = value)) +  
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = n), hjust = -0.1, size = 3) +
+  facet_wrap(~Film, scales = "free_y") +
+  scale_y_reordered() +
+  labs(
+    title = "Top 5 Sentiment Words per Film (AFINN Lexicon)",
+    x = "Contribution to Sentiment",
+    y = NULL
+  )
+
+# Join script with NRC sentiment/emotion lexicon
+nrc_count <- script_data |> 
+  inner_join(get_sentiments("nrc")) |> 
+  count(Film, word, sentiment, sort = TRUE) |> 
+  ungroup()
+
+# Plot top 5 unique emotion words per film
+nrc_count |> 
+  distinct(Film, word, .keep_all = TRUE) |>  
+  group_by(Film) |> 
+  slice_max(order_by = n, n = 5, with_ties = FALSE) |>  
+  ungroup() |> 
+  mutate(word = reorder_within(word, n, Film)) |> 
+  ggplot(aes(n, word, fill = sentiment)) +  
+  geom_col(show.legend = TRUE) +
+  geom_text(aes(label = n), hjust = -0.1, size = 3) +
+  facet_wrap(~Film, scales = "free_y") +
+  scale_y_reordered() +
+  labs(
+    title = "Top 5 Emotion Words per Film (NRC Lexicon)",
+    x = "Contribution to Sentiment",
+    y = NULL,
+    fill = "Emotion"
+  )
+```
+
+## Word Count Concerns
+
+Here we can see a few outliers, which we can identify as proper nouns or character names. I have chosen to filter out these proper nouns as they act as more of a way to address somebody within the script as opposed to convey sentiment or feeling.
+
+## Filtered Sentiment Plots
+
+```{r}
+# Filter script data for specific character-related keywords
+bing_filtered <- script_data |> 
+  filter(!grepl("fist|woo|stern|merry", 
+               word, ignore.case = TRUE)) |> 
+  inner_join(get_sentiments("bing")) |>             
+  select(Film, Oscar.Year, sentiment) |> 
+  count(Film, Oscar.Year, sentiment) |> 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |> 
+  mutate(sentiment = positive - negative)           
+
+afinn_filtered <- script_data |> 
+  filter(!grepl("smiles|woo|merry", 
+               word, ignore.case = TRUE)) |> 
+  inner_join(get_sentiments("afinn")) |>             
+  group_by(Film, Oscar.Year) |> 
+  summarise(sentiment = sum(value), .groups = "drop")
+
+
+nrc_filtered <- script_data |> 
+  filter(!grepl("john|colonel|princess|kicking|don|sheriff|stern|inspector|nurse", 
+               word, ignore.case = TRUE)) |> 
+  inner_join(get_sentiments("nrc")) |>             
+  select(Film, Oscar.Year, sentiment) |> 
+  count(Film, Oscar.Year, sentiment) |> 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |> 
+  mutate(sentiment = positive - negative)           
+
+# Reorder Film factor based on Oscar year
+bing_filtered <- bing_filtered |> 
+  mutate(Film = reorder(Film, Oscar.Year))
+
+afinn_filtered <- afinn_filtered |> 
+  mutate(Film = reorder(Film, Oscar.Year))
+
+nrc_filtered <- nrc_filtered |> 
+  mutate(Film = reorder(Film, Oscar.Year))
+
+# Create a bar plot of net sentiment score per film
+bing_filtered |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Filtered Bing Sentiment Scores by Film"
+  )
+
+afinn_filtered |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Filtered Afinn Sentiment Scores by Film"
+  )
+
+nrc_filtered |> 
+  ggplot(aes(x = Film, y = sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  
+  geom_text(aes(label = sentiment), vjust = -0.5, size = 3) +  
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Filtered NRC Sentiment Scores by Film"
+  )
+```
+
+We can see some of the same trends appearing across lexicons as before, but with more confidence that these reflect true sentiment.
+
+## Average Sentiment Scores
+
+```{r}
+bing_oscars_filtered <- merge(oscar_data, bing_filtered, by = "Film")
+afinn_oscars_filtered <- merge(oscar_data, afinn_filtered, by = "Film")
+nrc_oscars_filtered <- merge(oscar_data, nrc_filtered, by = "Film")
+
+# Merge the bing_oscars and nrc_oscars data frames by the "Film" column
+merge1 <- merge(bing_oscars_filtered, nrc_oscars_filtered, by = "Film")
+
+# Merge the result of the previous merge (merge1) with afinn_oscars by the "Film" column
+all_sentiment <- merge(merge1, afinn_oscars_filtered, by = "Film")
+
+# Select the relevant columns from the merged data frame
+all_sentiment <- all_sentiment |> 
+  select(Film,
+         Oscar.Year.x.x,
+         sentiment,
+         sentiment.x,
+         sentiment.y,
+         Movie.Genre
+         )
+
+# Rename columns and create a new "Mean.Sentiment" column
+all_sentiment <- all_sentiment |> 
+  rename("Bing.Sentiment" = "sentiment.x",
+         "NRC.Sentiment" = "sentiment",
+         "Afinn.Sentiment" = "sentiment.y",
+         "Oscar.Year" = "Oscar.Year.x.x")
+
+all_sentiment <- all_sentiment |> 
+  mutate("Mean.Sentiment" = round(rowMeans(cbind(Bing.Sentiment,
+                                            NRC.Sentiment, 
+                                            Afinn.Sentiment))))
+# Average sentiment scores bar chart
+all_sentiment |> 
+  ggplot(aes(x = Film, y = Mean.Sentiment, fill = Film)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  
+  geom_text(aes(label = Mean.Sentiment), vjust = -0.5, size = 3) +  
+  theme(
+    axis.text.x = element_text(angle = 50, hjust = 1, size = 6),  
+    axis.title.y = element_text(size = 10),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  labs(
+    x = "Film",
+    y = "Net Sentiment Score",
+    title = "Average Sentiment Scores by Film"
+  )
+```
+
+I chose to average the sentiment scores and model them in a bar graph in order to determine if there is any sort of trend to be seen in their means. What we see again is a negative tail on the left, followed by a climb upward, a drop down in the 2000s, finishing with a positive tail on the right in the 2010s. Plotting these with a linear model can perhaps show us insight into if there are trends. \## Average Sentiment Scores Modeled
+
+```{r}
+all_sentiment |>
+  ggplot(aes(x = Oscar.Year, y = Bing.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # regression line
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.5, size = 3) + # labels above points
+  labs(title = "Bing Sentiment vs. Oscar Year",
+       x = "Oscar Year",
+       y = "Filtered Bing Sentiment")
+
+all_sentiment |>
+  ggplot(aes(x = Oscar.Year, y = Afinn.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # regression line
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.5, size = 3) + # labels above points
+  labs(title = "Afinn Sentiment vs. Oscar Year",
+       x = "Oscar Year",
+       y = "Filtered Afinn Sentiment")
+
+all_sentiment |>
+  ggplot(aes(x = Oscar.Year, y = NRC.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # regression line
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.5, size = 3) + # labels above points
+  labs(title = "NRC Sentiment vs. Oscar Year",
+       x = "Oscar Year",
+       y = "Filtered NRC Sentiment")
+
+all_sentiment |>
+  ggplot(aes(x = Oscar.Year, y = Mean.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # regression line
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.5, size = 3) + # labels above points
+  labs(title = "Average Sentiment vs. Oscar Year",
+       x = "Oscar Year",
+       y = "Average Sentiment")
+```
+
+Across all graphs, broken down by lexicon and their average, we see a slight trend upward in scores. However, if this trend is statistically significant remains to be seen.
+
+## Average Sentiment Scores Summary
+
+```{r}
+m1 <- lm(Bing.Sentiment ~ Oscar.Year, data = all_sentiment)
+summary(m1)
+```
+
+Using Bing we can see that there is a statistically significant upward trend with a p-value of 0.03904. However, our R-squared indicates that our model is not a very good fit.
+
+```{r}
+m2 <- lm(Afinn.Sentiment ~ Oscar.Year, data = all_sentiment)
+summary(m2)
+```
+
+Using Afinn, we can see that there is no statistically significant relationship, and that our model does not show a strong relationship for the year to predict sentiment.
+
+```{r}
+m3 <- lm(NRC.Sentiment ~ Oscar.Year, data = all_sentiment)
+summary(m3)
+```
+
+While using NRC does show a slightly positive trend upward over the years, it is not statisically significant with a p-value of 0.07363.
+
+```{r}
+m4 <- lm(Mean.Sentiment ~ Oscar.Year, data = all_sentiment)
+summary(m4)
+```
+
+And finally, there is no statisically significant trend for sentiment scores across years.
+
+## Comparing Average Sentiment Across Genre
+
+```{r}
+# Split comma-separated genres into separate rows
+all_sentiment <- all_sentiment |> 
+  separate_rows(Movie.Genre, sep = ",")
+
+# Group by genre and calculate the mean sentiment for each
+genre_summary <- all_sentiment |> 
+  group_by(Movie.Genre) |> 
+  summarise(Mean.Sentiment = mean(Mean.Sentiment), .groups = "drop")
+
+# Create a plot showing average sentiment by genre
+genre_summary |> 
+  ggplot(aes(x = reorder(Movie.Genre, Mean.Sentiment), y = Mean.Sentiment)) +
+  geom_col(fill = "blue") +
+  coord_flip() +
+  labs(title = "Average Sentiment by Genre",
+       x = "Genre",
+       y = "Average Sentiment")
+```
+
+Here we can see that there is are more genres that skew negative than positive in our filtered data, with Actions and Westerns affecting the negative skew the most. While I thought perhaps excluding these extreme cases might help to see a trend in sentiment, I was disappointed.
+
+## Sentiment Scores Without Certain Genres
+
+```{r}
+films_with_western_or_action <- all_sentiment %>%
+  filter(Movie.Genre %in% c("Western", "Action")) %>%
+  pull(Film) %>%
+  unique()
+
+data_no_western_or_action <- all_sentiment %>%
+  filter(!Film %in% films_with_western_or_action)
+
+data_no_western_or_action <- data_no_western_or_action %>%
+  group_by(Film, Oscar.Year) %>%
+  summarise(Mean.Sentiment = mean(Mean.Sentiment), .groups = "drop") %>%
+  arrange(Oscar.Year)
+
+data_no_western_or_action |> 
+  ggplot(aes(x = Oscar.Year, y = Mean.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +  # regression line with confidence interval
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.7, size = 3) +  # labels just above points
+  labs(
+    title = "Average Sentiment vs. Oscar Year (No Western or Action)",
+    x = "Oscar Year",
+    y = "Average Sentiment"
+  ) 
+m5 <- lm(Mean.Sentiment ~ Oscar.Year, data = data_no_western_or_action)
+summary(m5)
+```
+
+Again we see that our model is a very poor fit and the worst p-value of all, 0.3954. Instead of choosing genres that acted as outliers, I sorted through how removing all genres would affect the trend.
+
+```{r}
+data_with_romance <- all_sentiment %>%
+  filter(Movie.Genre %in% c("Romance")) %>%
+  pull(Film) %>%
+  unique()
+
+data_with_no_romance <- all_sentiment %>%
+  filter(!Film %in% data_with_romance)
+
+data_with_no_romance <- data_with_no_romance %>%
+  group_by(Film, Oscar.Year) %>%
+  summarise(Mean.Sentiment = mean(Mean.Sentiment), .groups = "drop") %>%
+  arrange(Oscar.Year)
+
+data_with_no_romance |> 
+  ggplot(aes(x = Oscar.Year, y = Mean.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +  # regression line with confidence interval
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.7, size = 3) +  # labels just above points
+  labs(
+    title = "Average Sentiment vs. Oscar Year (No Romance)",
+    x = "Oscar Year",
+    y = "Average Sentiment"
+  ) 
+m5 <- lm(Mean.Sentiment ~ Oscar.Year, data = data_with_no_romance)
+summary(m5)
+
+data_with_war <- all_sentiment %>%
+  filter(Movie.Genre %in% c("War")) %>%
+  pull(Film) %>%
+  unique()
+
+data_with_no_war <- all_sentiment %>%
+  filter(!Film %in% data_with_war)
+
+data_with_no_war <- data_with_no_war %>%
+  group_by(Film, Oscar.Year) %>%
+  summarise(Mean.Sentiment = mean(Mean.Sentiment), .groups = "drop") %>%
+  arrange(Oscar.Year)
+
+data_with_no_war |> 
+  ggplot(aes(x = Oscar.Year, y = Mean.Sentiment)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +  
+  geom_text(aes(label = round(Mean.Sentiment, 1)), vjust = -0.7, size = 3) +  
+  labs(
+    title = "Average Sentiment vs. Oscar Year (No War)",
+    x = "Oscar Year",
+    y = "Average Sentiment"
+  ) 
+m6 <- lm(Mean.Sentiment ~ Oscar.Year, data = data_with_no_war)
+summary(m6)
+```
+
+After sifting through the all genres, I found that only removing "Romance" or "War" films would result in a statistically significant relationship, however neither model was a very good fit. While this was interesting, I find that this felt more like picking and choosing what data to include, and as such, cannot say with confidence that this showed a valuable relationship between sentiment score and time.
+
+## Conclusion
+
+Manually scraping for data can be tiresome, tedious and ineffective - however, I am pleased with the outcome of this project, as it made me appreciate how data is gathered in a more complete way. If I were to do this again, I would use a scraping tool to cut down on my front end work which would allow myself more time to focus on the analysis.
+
+Additionally, I am pleased with the end result of my data and my analysis. While it was disappointing to find that a statistically significant relationship between sentiment scores and years by using Bing, it was interesting to see how these lexicons can differ from each other in a real quantifiable way, and how someone might use that to adjust their data to fit a predetermined conclusion.
+
+Lastly, the idea for this project came from how films "changed" after 9/11, and how they became darker and grittier. I think it is interesting and relevant to point out that in our graphs we can see how following the 2002 Oscars where Chicago won, we see a drop in sentiment scores, a reflection of these grittier films.
+
+## Notes
+
+-   I opted to exclude "12 Years a Slave" as there are slurs that did not feel appropriate for me to analyze
+
+-   After I did my presentation I realized that when I originally attempted to filter out proper nouns, I accidentally filtered out everything BUT proper nouns. I have corrected that error here.
+
+-   I have expanded more on the genre and sentiment score analysis here, which I had not covered in my presentation.
