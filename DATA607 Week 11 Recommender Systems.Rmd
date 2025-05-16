@@ -1,0 +1,77 @@
+---
+title: "DATA607 Week 11 Recommender Systems"
+author: "Samuel Crummett"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Youtube's Recommender System
+
+## Overview
+
+Youtube is one of the largest platforms on the internet with a reported monthly active user base of 2.7 billion users. It is the second most popular social media platform worldwide, which could not be accomplished without a finely tuned recommender system to keep users hooked on the platform. They have developed this system by gathering data from multiple different sources, and implementing them in a series of steps. This information is presented to users in intuitive ways as well. Here we will examine the ways in which these factors work together.
+
+## Scenario Design Analysis
+
+1.  Youtube has a very broad reach, however we can begin to understand their target audience by looking at age. Over 1/5 of users are between the age of 25-34, and users tend to skew slightly male. India, the United States and Brazil are the countries with the largest audience, however Youtube is massive and as such has a global reach. These users are searching for videos on many different subjects, as Youtube does not traffic in hosting one particular type of video. These subjects range from vlogs, informative instructional videos, news, entertainment such as short films and gaming, or even educational videos ranging from small children to college level mathematics. They are even targeting short form content consumers with "Youtube Shorts", making a play for Tik Toks user base.\
+    Youtube also must attract creators to their platform, potentially those with an entrepreneurial spirit looking to start up their own endeavor or "business" of sorts. Just like there are folks searching for content like news and entertainment, there are folks looking to create that content for them.
+2.  The user's key goals are to be entertained through music videos, stand up comedy and skits, or live streams - this can be seen as similar to how folks watch tv or read a book. Users have the goal of occupying their time for a little bit to help relax or just simply enjoy something. Additionally, these users want to stay informed through news, and Youtube provides news conent in both long and short forms. This is great for anyone trying to keep up with the headlines at a fast pace or get deep analysis on current events. Educating oneself on a topic is also another goal for these users - I for one learned most of what I know about cooking through Youtube. One of the most important, underlying aspects regarding these users and their goals is that they are most often looking for this content/information for free. This abundance of knowledge and entertainment is particularly enticing because it is not walled off. Users might not engage with this material if it were not free.\
+    Youtube's primary goal is to retain users, whether that be the sheer number of users or the amount of time spent on the platform. This is due to how Youtube makes their money - ad revenue. With more time spent on the website, the more ads can be shown to a user, the more likely a user will pursue what the ad is promoting, and the more likely the companies advertising on Youtube will continue to do so, creating a longer revenue stream for Youtube.
+3.  Users can "help" Youtube to create more ad revenue by staying on the site for longer, consuming more videos, or even signing up for premium subscriptions. More importantly, they can also help Youtube's recommender system by leaving feedback on videos they have watched, or feedback on ads. By "liking" and subscribing to these videos and creators, users help Youtube to determine which videos will be good suggestions for them, or what ads they would like to see and would be more likely to click on. Again, for myself, I am often fed ads on cookware and food delivery services, something that Youtube has determined would be practical for me because I am often engaging with videos on food and cooking.\
+    Youtube helps users achieve their goals of consuming content for a variety of reasons through many different ways. One such way is being able to subscribe to creators and give them notifications about when new videos go up. They also give the option to comment on videos or otherwise engage with creators and users consuming the same content as them, creating more of a "community" for a user to be fulfilled by. All of this information is gathered in order to create a better recommendation for the next video for a user to watch.\
+    By refining their recommendations, Youtube can keep users on the site for longer as the users jump from one video to the next repeatedly. However, they must balance this with safety - in order to make sure that as many people possible can use the platform, they must make sure that appropriate content is recommended to particular groups, children specifically, and that there are controls in place for users to restrict content they do not want.
+4.  It is important to note that Youtube is owned by Google, and as such has gathered data from sources outside of Youtube to recommend content to you. While data from Youtube is important, the recommendation reach extends much further than just one website - the data being used is often from Google searches on interests and demographics.
+
+## Youtube Interface
+
+Youtube's UI consists of several different sections, the most important of which on their home page is the search bar. They provide a way to search for videos matching the description of what you're looking for, and will then give the user a list of videos to choose from. Additionally on their homepage shows several recommended videos to the user immediately based on your previous viewing habits. On the left they have options to explore channels the user is subscribed to, or topics of videos Youtube recommends users would like. However, tucked in between the search bar and recommended videos is an ad stretching across the entire width of the website.
+
+Upon clicking on a video we see a centered window for watching said video, with the search bar present. The biggest changes are how on the right side of the screen there is a list of videos recommended to you, with some of them being labeled as "sponsored". On top of this list is a large ad that the user can click to open the website in another tab or window. This page also includes ways to "like" the video, subscribe to the channel, share the video or comment. There are options to purchase merchandise from the creator as well, with links to a different website. Once the video finishes, more recommendations pop up where the video once played. There is, however, an option to turn on autoplay, which will continuously roll videos until the user chooses to stop it yourself or if it has autoplayed for 4 hours.
+
+When using their mobile app, Youtube has recently been focusing more on Shorts, or short form content. These Shorts are the first thing the user will see upon opening the app, taking up the entire screen, forcing users to scroll past their newest innovation to get to a more "classic" version of Youtube where a feed of recommended videos is presented to you, with advertisements linking elsewhere or sponsored videos intersperesed. On the top of the app there is still an option for searching, and at the bottom there are five buttons - Home (what we have just discussed), Shorts (a page dedicated to a feed of Shorts), Subscriptions (a feed of videos from creators one is subscribed to), You (a page hosting your playlists and viewing history), and finally a button to create a video oneself. (1)
+
+These videos, as previously mentioned, are recommended to users based on their viewing habits, as well as watch time, community engagement (likes and comments) and the click through rate (how much scrolling through the video users do and if the video is finished). The search feature is SEO optimized, with Youtube claiming they focus on three things in particular to determine search results - Relevance, Engagement and Quality. They also take into account your location and time of day when determining your results and recommendations. (2)
+
+To put it succinctly, Youtube uses a two step process in determining what videos to recommend to the user. First, they use Candidate Generation to narrow their potential videos. They do this based on user history and context, as previously stated. From there, they use Ranking to create a list of videos using the features of the videos (run time, click through rate, etc.), which is then presented to the user. (3)
+
+## Improvements
+
+While their user recommendations are fairly good at keeping people engaged with the platform, I believe Youtube ought to consider the following in order to improve the user experience:
+
+-   Create a more controlled algorithm
+
+    -   Allow users to determine what types of content contribute to their recommendations
+
+-   Allow users to filter out more unwanted content by title, thumbnail or content instead of just filtering out disliked videos individually
+
+-   Youtube has been doing more of this lately, but pushing smaller creators to the front of your recommendations
+
+    -   Creates a less homogeneous viewing experience across people
+
+Youtube could implement changes to improve their returns as well:
+
+-   More clearly delineate between sponsored videos and recommended videos in their feeds
+
+    -   While this is valuable for them on some level, it is frustrating for the user as it can feel very misleading and disruptive to the user experience
+
+-   As many mobile games have done, they can adopt an ad model where watching or engaging with ads allows for ad free viewing for a time
+
+-   More varied ads
+
+    -   As someone who gets many of the same ads, it can be obnoxious to hear the same ad read over and over
+
+    -   Varying these can help keep interest
+
+## Conclusion
+
+Youtube has an incredibly powerful recommendation system - one way this is reflected is how omnipresent it is. Their ability to target users with pertinent videos has resulted in many users, creators, and advertisements on the website. This ability comes from sourcing data from many different websites, demographic associations and watch history. However, there are still many ways in which Youtube could become a more accessible website, including a more user friendly algorithm experience, or even being more generous with the frequency and diversity of ads.
+
+## Sources
+
+1.  Kunal M. (2023, July 27). *New challenges: My experience with the YouTube user interface*. Medium. <https://medium.com/design-bootcamp/new-challenges-my-experience-with-the-youtube-user-interface-96bbc01e4fed>
+2.  Southern, M. (2020, August 7). *Google explains how YouTube search works*. Search Engine Journal. <https://www.searchenginejournal.com/google-explains-how-youtube-search-works/373189/>
+3.  Mangla, P. (2023, September 25). *YouTube video recommendation systems*. PyImageSearch. <https://pyimagesearch.com/2023/09/25/youtube-video-recommendation-systems/>
